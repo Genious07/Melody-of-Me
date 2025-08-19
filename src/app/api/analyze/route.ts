@@ -2,40 +2,37 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getAllSavedTracks, getAudioFeatures, getArtists, refreshAccessToken } from '@/lib/spotify';
 import kmeans from 'ml-kmeans';
+import jwt from 'jsonwebtoken';
+import User from '@/models/user.model';
+import dbConnect from '@/lib/dbConnect';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
 
 // Helper function to handle token refresh
-async function fetchWithRefresh(refreshToken: string, fetcher: (token: string) => Promise<any>) {
+async function fetchWithRefresh(userId: string, currentAccessToken: string, currentRefreshToken: string, fetcher: (token: string) => Promise<any>) {
     try {
-        const newTokens = await refreshAccessToken(refreshToken);
-        const cookieStore = cookies();
-        cookieStore.set('spotify_access_token', newTokens.access_token, {
-            httpOnly: true,
-            path: '/',
-            maxAge: newTokens.expires_in,
-        });
-
-        if (newTokens.refresh_token) {
-            cookieStore.set('spotify_refresh_token', newTokens.refresh_token, {
-                httpOnly: true,
-                path: '/',
-                maxAge: 60 * 60 * 24 * 30, // 30 days
-            });
-        }
-        return await fetcher(newTokens.access_token);
+        // First, try with the current access token
+        return await fetcher(currentAccessToken);
     } catch (e) {
-        console.error("Token refresh failed", e);
-        throw new Error("Authentication expired. Please log in again.");
+        console.log("Access token likely expired, attempting refresh.");
+        
+        // If it fails, refresh the token
+        const newTokens = await refreshAccessToken(currentRefreshToken);
+        
+        // Update the database with the new access token
+        await User.findByIdAndUpdate(userId, {
+            accessToken: newTokens.access_token,
+            // Also update the refresh token if a new one was provided
+            ...(newTokens.refresh_token && { refreshToken: newTokens.refresh_token })
+        });
+        
+        // Retry the original fetcher function with the new token
+        return await fetcher(newTokens.access_token);
     }
 }
 
-async function analyzeUserMusic(accessToken: string, refreshToken: string) {
-    let savedTracks;
-    try {
-        savedTracks = await getAllSavedTracks(accessToken);
-    } catch (e) {
-        console.log("Access token likely expired, attempting refresh for saved tracks.");
-        savedTracks = await fetchWithRefresh(refreshToken, (token) => getAllSavedTracks(token));
-    }
+async function analyzeUserMusic(userId: string, accessToken: string, refreshToken: string) {
+    const savedTracks = await fetchWithRefresh(userId, accessToken, refreshToken, (token) => getAllSavedTracks(token));
 
     if (!savedTracks || savedTracks.length === 0) {
         return [];
@@ -62,13 +59,7 @@ async function analyzeUserMusic(accessToken: string, refreshToken: string) {
 
         const trackIds = tracksInWindow.map(t => t.id).filter(id => id);
         
-        let audioFeatures;
-        try {
-            audioFeatures = await getAudioFeatures(accessToken, trackIds);
-        } catch (e) {
-            console.log("Access token likely expired, attempting refresh for audio features.");
-            audioFeatures = await fetchWithRefresh(refreshToken, (token) => getAudioFeatures(token, trackIds));
-        }
+        const audioFeatures = await fetchWithRefresh(userId, accessToken, refreshToken, (token) => getAudioFeatures(token, trackIds));
         
         const featuresMap = audioFeatures.reduce((acc: any, f: any) => {
             if (f) acc[f.id] = f;
@@ -101,13 +92,7 @@ async function analyzeUserMusic(accessToken: string, refreshToken: string) {
             const clusterTrackIds = validClusterTracks.map(t => t.id);
             const clusterArtistIds = [...new Set(validClusterTracks.flatMap(t => t.artists.map((a: any) => a.id)))];
             
-            let artistsData;
-             try {
-                artistsData = await getArtists(accessToken, clusterArtistIds);
-            } catch (e) {
-                console.log("Access token likely expired, attempting refresh for artists.");
-                artistsData = await fetchWithRefresh(refreshToken, (token) => getArtists(token, clusterArtistIds));
-            }
+            const artistsData = await fetchWithRefresh(userId, accessToken, refreshToken, (token) => getArtists(token, clusterArtistIds));
 
             const topArtists = artistsData.slice(0, 3).map(a => a.name);
             const topGenres = [...new Set(artistsData.flatMap(a => a.genres))].slice(0, 3);
@@ -138,22 +123,35 @@ async function analyzeUserMusic(accessToken: string, refreshToken: string) {
 
 export async function GET(request: NextRequest) {
     const cookieStore = cookies();
-    const accessToken = cookieStore.get('spotify_access_token')?.value;
-    const refreshToken = cookieStore.get('spotify_refresh_token')?.value;
+    const sessionToken = cookieStore.get('session_token')?.value;
 
-    if (!accessToken || !refreshToken) {
+    if (!sessionToken) {
         return new NextResponse('User not authenticated', { status: 401 });
     }
 
+    let decoded;
     try {
-        const analysisResult = await analyzeUserMusic(accessToken, refreshToken);
+        decoded = jwt.verify(sessionToken, JWT_SECRET) as { spotifyId: string };
+    } catch (error) {
+        return new NextResponse('Invalid session token', { status: 401 });
+    }
+
+    try {
+        await dbConnect();
+        const user = await User.findOne({ spotifyId: decoded.spotifyId });
+
+        if (!user) {
+            return new NextResponse('User not found', { status: 404 });
+        }
+
+        const analysisResult = await analyzeUserMusic(user._id, user.accessToken, user.refreshToken);
         return NextResponse.json(analysisResult);
+
     } catch (error: any) {
         console.error('Analysis failed:', error);
          if (error.message.includes("Authentication expired")) {
             const response = new NextResponse(error.message, { status: 401 });
-             response.cookies.delete('spotify_access_token');
-             response.cookies.delete('spotify_refresh_token');
+             response.cookies.delete('session_token');
             return response;
         }
         return new NextResponse('Failed to analyze music data.', { status: 500 });
