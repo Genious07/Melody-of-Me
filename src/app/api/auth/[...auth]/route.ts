@@ -112,7 +112,7 @@ export async function GET(
         expiresIn: '30d',
       });
 
-      const response = NextResponse.redirect(new URL('/dashboard', request.url));
+      const response = NextResponse.redirect(new URL('/', request.url));
 
       response.cookies.set({
         name: 'session_token',
