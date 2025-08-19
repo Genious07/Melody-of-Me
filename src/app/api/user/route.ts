@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
         
         // Store user data in MongoDB
         const client = await clientPromise;
-        const db = client.db("melodyofme");
+        const db = client.db("spotify");
         await db.collection("users").updateOne(
             { id: userProfile.id },
             { $set: userProfile, $currentDate: { lastLogin: true } },
