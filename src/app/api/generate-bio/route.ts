@@ -1,9 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { generateBio, BioInputSchema } from '@/ai/flows/generate-bio-flow';
 import Biography from '@/models/biography.model';
 import clientPromise from '@/lib/mongodb';
-import { randomUUID } from 'crypto';
+import { v4 as uuidv4 } from 'uuid';
+import { Groq } from 'groq-sdk';
+import { z } from 'zod';
+
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+const EraSchema = z.object({
+  timeframe: z.string(),
+  eraName: z.string(),
+  topArtists: z.array(z.string()),
+  topGenres: z.array(z.string()),
+  avgFeatures: z.object({
+    energy: z.number(),
+    valence: z.number(),
+    danceability: z.number(),
+  }),
+  trackIds: z.array(z.string()),
+});
+
+const BioInputSchema = z.object({
+  eras: z.array(EraSchema),
+});
+
+
+// Helper function to generate a prompt for a single era
+const createPromptForEra = (era: z.infer<typeof EraSchema>): string => {
+    const topArtists = era.topArtists.slice(0, 3).join(', ');
+    const genres = era.topGenres.slice(0, 3).join(', ');
+    const energy = Math.round(era.avgFeatures.energy * 100);
+    const valence = Math.round(era.avgFeatures.valence * 100);
+
+    return `You are a witty, insightful music journalist crafting a chapter of a person's musical biography.
+    Write one evocative paragraph (around 80-100 words) describing this musical phase named "${era.eraName}".
+    Focus on the feeling and narrative, not just listing data. Be personal and creative.
+
+    Details of the Era:
+    - Timeframe: ${era.timeframe}
+    - Key Artists: ${topArtists}
+    - Dominant Genres: ${genres}
+    - Vibe: Energy level at ${energy}% and Happiness/Positivity at ${valence}%.`;
+};
 
 export async function POST(request: NextRequest) {
     const cookieStore = cookies();
@@ -20,11 +59,8 @@ export async function POST(request: NextRequest) {
         return new NextResponse(JSON.stringify(parseResult.error.format()), { status: 400 });
     }
 
-    const eras = parseResult.data.eras;
+    const { eras } = parseResult.data;
 
-    // Fetch user ID for linking the biography
-    // A more robust app might get this from a session or a DB lookup
-    // For now, we'll fetch it again.
     let userId: string;
     try {
         const userRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/user`, {
@@ -40,10 +76,26 @@ export async function POST(request: NextRequest) {
     
 
     try {
-        const fullBiography = await generateBio({ eras });
-        const shareId = randomUUID();
+        const narrativePromises = eras.map(era => {
+            const prompt = createPromptForEra(era);
+            return groq.chat.completions.create({
+                messages: [{ role: 'user', content: prompt }],
+                model: 'mixtral-8x7b-32768',
+                temperature: 0.7,
+                max_tokens: 256,
+            });
+        });
 
-        await clientPromise; // Ensure DB connection
+        const completions = await Promise.all(narrativePromises);
+        
+        const narrativeParts = completions.map(
+            completion => completion.choices[0]?.message?.content?.trim() || ''
+        );
+        const fullBiography = narrativeParts.join('\n\n');
+
+        const shareId = uuidv4();
+
+        await clientPromise;
         
         const newBio = new Biography({
             userId: userId,
