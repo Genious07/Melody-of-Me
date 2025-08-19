@@ -10,7 +10,7 @@ const generateRandomString = (length: number) => {
   return text;
 };
 
-const scope = 'user-read-private user-read-email user-top-read';
+const scope = 'user-library-read user-top-read';
 const state = generateRandomString(16);
 
 export function GET() {

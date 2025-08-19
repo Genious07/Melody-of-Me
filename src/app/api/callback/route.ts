@@ -36,13 +36,15 @@ export async function GET(request: NextRequest) {
       maxAge: expires_in, // in seconds
     });
 
-    response.cookies.set({
-      name: 'spotify_refresh_token',
-      value: refresh_token,
-      httpOnly: true,
-      path: '/',
-      maxAge: 60 * 60 * 24 * 30, // 30 days
-    });
+    if (refresh_token) {
+        response.cookies.set({
+          name: 'spotify_refresh_token',
+          value: refresh_token,
+          httpOnly: true,
+          path: '/',
+          maxAge: 60 * 60 * 24 * 30, // 30 days
+        });
+    }
 
     return response;
 
