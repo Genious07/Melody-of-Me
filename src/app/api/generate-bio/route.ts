@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import Biography from '@/models/biography.model';
-import clientPromise from '@/lib/mongodb';
+import dbConnect from '@/lib/dbConnect';
 import { v4 as uuidv4 } from 'uuid';
 import { Groq } from 'groq-sdk';
 import { z } from 'zod';
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
     const { eras } = parseResult.data;
     
     try {
-        await clientPromise;
+        await dbConnect();
         const user = await User.findOne({ spotifyId: decoded.spotifyId });
 
         if (!user) {

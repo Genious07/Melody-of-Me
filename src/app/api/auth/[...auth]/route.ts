@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 import crypto from 'crypto';
 import { getAccessToken, getUserProfile } from '@/lib/spotify'; 
 import User from '@/models/user.model';
-import clientPromise from '@/lib/mongodb';
+import dbConnect from '@/lib/dbConnect';
 import jwt from 'jsonwebtoken';
 
 const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID!;
@@ -83,7 +83,7 @@ export async function GET(
 
     try {
       // Ensure DB connection
-      await clientPromise;
+      await dbConnect();
       
       // 2. Exchange Authorization Code for Access Token
       const tokenData = await getAccessToken(code, redirectUri);

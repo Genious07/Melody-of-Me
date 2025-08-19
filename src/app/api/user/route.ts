@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getUserProfile, refreshAccessToken } from '@/lib/spotify';
-import clientPromise from '@/lib/mongodb';
+import dbConnect from '@/lib/dbConnect';
 import User from '@/models/user.model';
 import jwt from 'jsonwebtoken';
 
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
         return response;
     }
     
-    await clientPromise;
+    await dbConnect();
     const user = await User.findOne({ spotifyId: decoded.spotifyId });
 
     if (!user) {

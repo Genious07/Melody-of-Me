@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import clientPromise from '@/lib/mongodb';
+import dbConnect from '@/lib/dbConnect';
 import Biography from '@/models/biography.model';
 import { ObjectId } from 'mongodb';
 
@@ -14,7 +14,7 @@ export async function GET(
   }
 
   try {
-    await clientPromise;
+    await dbConnect();
 
     const bio = await Biography.findOne({ shareId }).lean();
 
