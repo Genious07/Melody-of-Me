@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
-import { getAccessToken, getUserProfile, refreshAccessToken } from '@/lib/spotify';
+import { getAccessToken, getUserProfile } from '@/lib/spotify';
 import User from '@/models/user.model';
 import dbConnect from '@/lib/dbConnect';
 import jwt from 'jsonwebtoken';
@@ -32,7 +32,7 @@ export async function GET(
   // === LOGIN ACTION ===
   if (action === 'login') {
     const state = generateRandomString(16);
-    const scope = 'user-library-read user-top-read user-read-private user-read-email playlist-read-private playlist-read-collaborative user-read-recently-played';
+    const scope = 'user-library-read user-top-read user-read-private user-read-email playlist-read-private playlist-read-collaborative';
 
     // Set the state in a secure, httpOnly cookie
     cookies().set('spotify_auth_state', state, {

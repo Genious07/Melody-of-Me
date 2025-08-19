@@ -48,12 +48,12 @@ export const refreshAccessToken = async (refresh_token: string): Promise<TokenRe
         refresh_token,
       }),
     });
-
+  
     if (!response.ok) {
       const error = await response.json();
       throw new Error(error.error_description || 'Failed to refresh access token');
     }
-
+  
     return response.json();
   };
 
@@ -65,7 +65,6 @@ export const getUserProfile = async (access_token: string) => {
     });
 
     if (!response.ok) {
-        // If token is expired, this will fail. The caller should handle this.
         throw new Error('Failed to fetch user profile');
     }
 
@@ -95,6 +94,7 @@ export const getAllSavedTracks = async (token: string): Promise<any[]> => {
     return tracks;
 };
 
+// ... keep the rest of the functions from the previous answer as they are correct with the new API_BASE
 export const getTopItems = async (token: string, type: 'artists' | 'tracks', time_range: 'short_term' | 'medium_term' | 'long_term' = 'medium_term', limit: number = 50) => {
     const response = await fetch(`${API_BASE}/me/top/${type}?time_range=${time_range}&limit=${limit}`, {
         headers: {
