@@ -5,7 +5,7 @@ export interface IUser extends Document {
     displayName: string;
     email: string;
     accessToken: string;
-    refreshToken: string;
+    refreshToken?: string;
     lastLogin: Date;
 }
 
@@ -14,7 +14,7 @@ const userSchema = new Schema<IUser>({
     displayName: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     accessToken: { type: String, required: true },
-    refreshToken: { type: String, required: true },
+    refreshToken: { type: String },
     lastLogin: { type: Date, default: Date.now },
 });
 
