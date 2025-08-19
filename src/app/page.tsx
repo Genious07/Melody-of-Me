@@ -4,11 +4,11 @@ import Dashboard from '@/components/dashboard'
 
 export default async function Home() {
   const cookieStore = cookies()
-  const accessToken = cookieStore.get('spotify_access_token')
+  const sessionToken = cookieStore.get('session_token')
 
   return (
     <main>
-      {accessToken ? <Dashboard /> : <LoginPage />}
+      {sessionToken ? <Dashboard /> : <LoginPage />}
     </main>
   )
 }

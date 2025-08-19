@@ -3,10 +3,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
-import { getAccessToken, refreshAccessToken } from '@/lib/spotify'; 
+import { getAccessToken, getUserProfile } from '@/lib/spotify'; 
+import User from '@/models/user.model';
+import clientPromise from '@/lib/mongodb';
+import jwt from 'jsonwebtoken';
 
 const SPOTIFY_CLIENT_ID = process.env.SPOTIFY_CLIENT_ID!;
 const SPOTIFY_CALLBACK_PATH = '/api/auth/callback';
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
 
 // Function to generate a secure random string for the state
 const generateRandomString = (length: number) => {
@@ -82,31 +86,41 @@ export async function GET(
       const tokenData = await getAccessToken(code, redirectUri);
       const { access_token, refresh_token, expires_in } = tokenData;
 
-      // 3. Set Final Session Cookies and Redirect
-      // Redirect to the main page explicitly
+      // 3. Fetch user profile from Spotify
+      const userProfile = await getUserProfile(access_token);
+
+      // 4. Upsert user data into MongoDB
+      await clientPromise;
+      await User.updateOne(
+        { spotifyId: userProfile.id },
+        {
+          $set: {
+            displayName: userProfile.display_name,
+            email: userProfile.email,
+            accessToken: access_token,
+            refreshToken: refresh_token || undefined, // Only set if provided
+            lastLogin: new Date(),
+          },
+        },
+        { upsert: true }
+      );
+      
+      // 5. Create a session JWT and set it as a cookie
+      const token = jwt.sign({ spotifyId: userProfile.id }, JWT_SECRET, {
+        expiresIn: '30d',
+      });
+      
       const response = NextResponse.redirect(new URL('/', request.url));
       
       response.cookies.set({
-        name: 'spotify_access_token',
-        value: access_token,
+        name: 'session_token',
+        value: token,
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         path: '/',
-        maxAge: expires_in,
+        maxAge: 60 * 60 * 24 * 30, // 30 days
         sameSite: 'lax',
       });
-
-      if (refresh_token) {
-        response.cookies.set({
-          name: 'spotify_refresh_token',
-          value: refresh_token,
-          httpOnly: true,
-          secure: process.env.NODE_ENV === 'production',
-          path: '/',
-          maxAge: 60 * 60 * 24 * 30, // 30 days
-          sameSite: 'lax',
-        });
-      }
 
       return response;
 
@@ -120,8 +134,7 @@ export async function GET(
 
   // === LOGOUT ACTION ===
   if (action === 'logout') {
-    cookies().delete('spotify_access_token');
-    cookies().delete('spotify_refresh_token');
+    cookies().delete('session_token');
     return NextResponse.redirect(new URL('/', request.url));
   }
 
