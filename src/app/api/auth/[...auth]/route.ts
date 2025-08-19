@@ -18,7 +18,11 @@ export async function GET(
   { params }: { params: { auth: string[] } }
 ) {
   const action = params.auth[0];
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL!;
+  
+  // Dynamically construct the redirect URI from the request
+  const host = request.headers.get('host');
+  const proto = request.headers.get('x-forwarded-proto') || 'http';
+  const appUrl = `${proto}://${host}`;
   const redirectUri = new URL(SPOTIFY_CALLBACK_PATH, appUrl).toString();
 
   // === LOGIN ACTION ===
