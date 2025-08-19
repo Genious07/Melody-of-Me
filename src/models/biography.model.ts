@@ -1,0 +1,22 @@
+import { Schema, model, Document, Model } from 'mongoose';
+
+export interface IBiography extends Document {
+    userId: string; 
+    shareId: string;
+    content: string;
+    eras: object[]; 
+    createdAt: Date;
+}
+
+const biographySchema = new Schema<IBiography>({
+    userId: { type: String, required: true, index: true },
+    shareId: { type: String, required: true, unique: true, index: true },
+    content: { type: String, required: true },
+    eras: { type: Array, required: true },
+    createdAt: { type: Date, default: Date.now, expires: '30d' }, 
+});
+
+// To prevent model recompilation on hot reloads
+const Biography: Model<IBiography> = model<IBiography>('Biography', biographySchema);
+
+export default Biography;
