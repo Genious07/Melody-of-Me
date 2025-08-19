@@ -32,7 +32,7 @@ export async function GET(
   // === LOGIN ACTION ===
   if (action === 'login') {
     const state = generateRandomString(16);
-    const scope = 'user-library-read user-top-read user-read-private user-read-email playlist-read-private playlist-read-collaborative user-read-recently-played'; // Added user-read-recently-played
+    const scope = 'user-library-read user-top-read user-read-private user-read-email playlist-read-private playlist-read-collaborative user-read-recently-played';
 
     // Set the state in a secure, httpOnly cookie
     cookies().set('spotify_auth_state', state, {
@@ -43,7 +43,7 @@ export async function GET(
       sameSite: 'lax', // Essential for OAuth redirects
     });
 
-    const authUrl = new URL('https://accounts.spotify.com/authorize');
+    const authUrl = new URL('https://api.spotify.com/v1/users/31i7q3wqcjsbroioxggvp5h7lpsm/playlists0');
     authUrl.search = new URLSearchParams({
       response_type: 'code',
       client_id: SPOTIFY_CLIENT_ID,
