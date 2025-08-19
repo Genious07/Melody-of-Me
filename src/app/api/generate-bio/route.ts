@@ -37,7 +37,7 @@ const createPromptForEra = (era: z.infer<typeof EraSchema>): string => {
 
     return `You are a witty, insightful music journalist crafting a chapter of a person's musical biography.
     Write one evocative paragraph (around 80-100 words) describing this musical phase named "${era.eraName}".
-    Focus on the feeling and narrative, not just listing data. Be personal and creative.
+    Focus on the feeling and narrative, describing the user's personality traits inferred from their music choices (e.g., adventurous, introspective, energetic), the type of music they enjoy, the artists they like (${topArtists}), and what this all says about them as a person. Be personal, creative, and weave in deeper insights—use web search if needed for artist backgrounds, genre meanings, or cultural implications.
 
     Details of the Era:
     - Timeframe: ${era.timeframe}
@@ -80,21 +80,37 @@ export async function POST(request: NextRequest) {
         
         const userId = user._id;
 
-        const narrativePromises = eras.map(era => {
-            const prompt = createPromptForEra(era);
-            return groq.chat.completions.create({
+        // Function to handle streaming completion and collect full content
+        const getCompletionContent = async (prompt: string): Promise<string> => {
+            const stream = await groq.chat.completions.create({
                 messages: [{ role: 'user', content: prompt }],
-                model: 'gemma2-9b-it',
-                temperature: 0.7,
-                max_tokens: 256,
+                model: 'openai/gpt-oss-120b',
+                temperature: 1,
+                max_completion_tokens: 8192,
+                top_p: 1,
+                stream: true,
+                reasoning_effort: 'medium',
+                stop: null,
+                tools: [
+                    {
+                        type: 'browser_search'
+                    }
+                ]
             });
+
+            let fullContent = '';
+            for await (const chunk of stream) {
+                fullContent += chunk.choices[0]?.delta?.content || '';
+            }
+            return fullContent.trim();
+        };
+
+        const narrativePromises = eras.map(async (era) => {
+            const prompt = createPromptForEra(era);
+            return getCompletionContent(prompt);
         });
 
-        const completions = await Promise.all(narrativePromises);
-        
-        const narrativeParts = completions.map(
-            completion => completion.choices[0]?.message?.content?.trim() || ''
-        );
+        const narrativeParts = await Promise.all(narrativePromises);
         const fullBiography = narrativeParts.join('\n\n');
 
         const shareId = uuidv4();
