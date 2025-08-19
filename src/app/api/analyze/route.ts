@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getAllSavedTracks, getAudioFeatures, getArtists, refreshAccessToken } from '@/lib/spotify';
-import { kmeans } from 'ml-kmeans';
+import kmeans from 'ml-kmeans';
 
 // Helper function to handle token refresh
 async function fetchWithRefresh(refreshToken: string, fetcher: (token: string) => Promise<any>) {
