@@ -1,4 +1,4 @@
-import { getAudioFeatures, getArtists, refreshAccessToken } from './spotify';
+import { getAudioFeatures, getArtists } from './spotify';
 import User from '@/models/user.model';
 
 interface Track {
@@ -22,53 +22,11 @@ export interface Era {
   trackIds: string[];
 }
 
-// This enhanced fetcher now lives inside the analysis service
-// to ensure all calls made during analysis are refresh-aware.
-const createFetchWithRefresh = (
-    userId: string,
-    initialAccessToken: string,
-    initialRefreshToken?: string
-) => {
-    let accessToken = initialAccessToken;
-    let refreshToken = initialRefreshToken;
-
-    return async <T>(fetcher: (token: string) => Promise<T>): Promise<T> => {
-        try {
-            return await fetcher(accessToken);
-        } catch (error: any) {
-            // Check if the error indicates an expired token, or just try to refresh
-            console.log("Access token likely expired during analysis, attempting refresh.");
-            
-            if (!refreshToken) {
-                throw new Error("Authentication expired. No refresh token available.");
-            }
-
-            const newTokens = await refreshAccessToken(refreshToken);
-            accessToken = newTokens.access_token;
-            
-            // If Spotify returns a new refresh token, update it for subsequent refreshes
-            if (newTokens.refresh_token) {
-                refreshToken = newTokens.refresh_token;
-            }
-            
-            // Update the database with the latest tokens
-            await User.updateOne(
-                { spotifyId: userId },
-                { $set: { accessToken, refreshToken } }
-            );
-
-            // Retry the original fetcher function with the new token
-            return await fetcher(accessToken);
-        }
-    };
-};
-
-
+// This function now expects a function that can make authorized requests,
+// rather than handling the token refresh itself.
 export async function analyzeMusicalEras(
-  userId: string,
   savedTracks: Track[],
-  initialAccessToken: string,
-  initialRefreshToken?: string
+  fetcher: <T>(apiCall: (token: string) => Promise<T>) => Promise<T>
 ): Promise<Era[]> {
   // 1. Sort tracks chronologically
   const sortedTracks = savedTracks
@@ -79,15 +37,12 @@ export async function analyzeMusicalEras(
     return []; // Not enough data to analyze
   }
 
-  // Create a refresh-aware fetcher for this analysis session
-  const fetchWithRefresh = createFetchWithRefresh(userId, initialAccessToken, initialRefreshToken);
-
   const erasData: Era[] = [];
   const tracksPerEra = Math.max(20, Math.ceil(sortedTracks.length / 5)); // Create up to 5 eras
 
   // Pre-fetch all audio features at once for efficiency
   const allTrackIds = sortedTracks.map(item => item.track.id);
-  const audioFeaturesList = await fetchWithRefresh(token => getAudioFeatures(token, allTrackIds));
+  const audioFeaturesList = await fetcher(token => getAudioFeatures(token, allTrackIds));
   const audioFeaturesMap = new Map(audioFeaturesList.filter(f => f).map(f => [f.id, f]));
 
   for (let i = 0; i < sortedTracks.length; i += tracksPerEra) {
@@ -113,7 +68,7 @@ export async function analyzeMusicalEras(
 
     const topArtistIds = topArtistsNames.map(name => artistIdMap[name]).filter(id => id);
     const artistsDetails = topArtistIds.length > 0
-      ? await fetchWithRefresh(token => getArtists(token, topArtistIds))
+      ? await fetcher(token => getArtists(token, topArtistIds))
       : [];
 
     const genreCounts: Record<string, number> = {};

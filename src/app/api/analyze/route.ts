@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getAllSavedTracks, refreshAccessToken } from '@/lib/spotify';
-import { analyzeMusicalEras } from '@/lib/analysis'; // Import the new service
+import { analyzeMusicalEras } from '@/lib/analysis';
 import dbConnect from '@/lib/dbConnect';
 import User from '@/models/user.model';
 import jwt from 'jsonwebtoken';
@@ -35,34 +35,40 @@ export async function GET(request: NextRequest) {
 
   let { accessToken, refreshToken } = user;
 
-  try {
-    const fetchWithRefresh = async <T>(fetcher: (token: string) => Promise<T>): Promise<{data: T, token: string}> => {
-      try {
-        const data = await fetcher(accessToken);
-        return { data, token: accessToken };
-      } catch (error) {
-        console.log("Access token likely expired, attempting refresh.");
-        if (!refreshToken) {
-          throw new Error("Authentication expired. No refresh token available.");
-        }
-        const newTokens = await refreshAccessToken(refreshToken);
-        accessToken = newTokens.access_token;
-        await User.updateOne({ spotifyId: user.spotifyId }, { $set: { accessToken } });
-        const data = await fetcher(accessToken);
-        return { data, token: accessToken };
+  const fetchWithRefresh = async <T>(fetcher: (token: string) => Promise<T>): Promise<T> => {
+    try {
+      return await fetcher(accessToken);
+    } catch (error) {
+      console.log("Access token likely expired, attempting refresh.");
+      if (!refreshToken) {
+        throw new Error("Authentication expired. No refresh token available.");
       }
-    };
+      const newTokens = await refreshAccessToken(refreshToken);
+      accessToken = newTokens.access_token;
+      
+      // Also update refresh token if a new one is provided by Spotify
+      const updatedTokenData: { accessToken: string, refreshToken?: string } = { accessToken };
+      if (newTokens.refresh_token) {
+          refreshToken = newTokens.refresh_token;
+          updatedTokenData.refreshToken = refreshToken;
+      }
 
-    // 1. Fetch all saved tracks
-    const { data: savedTracks, token: currentAccessToken } = await fetchWithRefresh(token => getAllSavedTracks(token));
+      await User.updateOne({ spotifyId: user.spotifyId }, { $set: updatedTokenData });
+      return await fetcher(accessToken);
+    }
+  };
+
+  try {
+    // 1. Fetch all saved tracks using the refresh-aware fetcher
+    const savedTracks = await fetchWithRefresh(token => getAllSavedTracks(token));
 
     // If user has too few tracks, return empty to prevent errors
     if (!savedTracks || savedTracks.length < 20) {
         return NextResponse.json([]);
     }
 
-    // 2. Analyze the tracks to identify eras, passing the most current tokens
-    const eras = await analyzeMusicalEras(user.spotifyId, savedTracks, currentAccessToken, refreshToken);
+    // 2. Analyze the tracks to identify eras, passing the refresh-aware fetcher
+    const eras = await analyzeMusicalEras(savedTracks, fetchWithRefresh);
 
     return NextResponse.json(eras);
 
