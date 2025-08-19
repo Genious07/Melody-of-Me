@@ -1,5 +1,4 @@
-import { NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
+import { NextRequest, NextResponse } from 'next/server';
 
 const generateRandomString = (length: number) => {
   let text = '';
@@ -12,16 +11,8 @@ const generateRandomString = (length: number) => {
 
 const scope = 'user-library-read user-top-read';
 
-export function GET() {
+export function GET(request: NextRequest) {
   const state = generateRandomString(16);
-  const cookieStore = cookies();
-
-  cookieStore.set('spotify_auth_state', state, { 
-    httpOnly: true, 
-    path: '/',
-    secure: process.env.NODE_ENV !== 'development',
-    sameSite: 'lax'
-  });
 
   const authUrl = new URL('https://accounts.spotify.com/authorize');
   authUrl.search = new URLSearchParams({
@@ -32,5 +23,16 @@ export function GET() {
     state: state,
   }).toString();
 
-  return NextResponse.redirect(authUrl);
+  const response = NextResponse.redirect(authUrl);
+
+  response.cookies.set({
+    name: 'spotify_auth_state',
+    value: state,
+    httpOnly: true,
+    path: '/',
+    secure: process.env.NODE_ENV !== 'development',
+    sameSite: 'lax',
+  });
+
+  return response;
 }
