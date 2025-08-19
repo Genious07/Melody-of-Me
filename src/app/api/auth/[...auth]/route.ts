@@ -43,7 +43,7 @@ export async function GET(
       sameSite: 'lax', // Essential for OAuth redirects
     });
 
-    const authUrl = new URL('https://api.spotify.com/v1/users/31i7q3wqcjsbroioxggvp5h7lpsm/playlists0');
+    const authUrl = new URL('https://accounts.spotify.com/authorize');
     authUrl.search = new URLSearchParams({
       response_type: 'code',
       client_id: SPOTIFY_CLIENT_ID,

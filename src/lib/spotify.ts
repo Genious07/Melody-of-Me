@@ -4,7 +4,6 @@ const client_id = process.env.SPOTIFY_CLIENT_ID;
 const client_secret = process.env.SPOTIFY_CLIENT_SECRET;
 const basic = Buffer.from(`${client_id}:${client_secret}`).toString('base64');
 const TOKEN_ENDPOINT = `https://accounts.spotify.com/api/token`;
-const API_BASE = 'https://api.spotify.com/v1';
 
 interface TokenResponse {
   access_token: string;
@@ -58,7 +57,7 @@ export const refreshAccessToken = async (refresh_token: string): Promise<TokenRe
   };
 
 export const getUserProfile = async (access_token: string) => {
-    const response = await fetch(`${API_BASE}/me`, {
+    const response = await fetch('https://api.spotify.com/v1/me', {
         headers: {
             Authorization: `Bearer ${access_token}`,
         },
@@ -73,7 +72,7 @@ export const getUserProfile = async (access_token: string) => {
 
 export const getAllSavedTracks = async (token: string): Promise<any[]> => {
     let tracks: any[] = [];
-    let nextUrl: string | null = `${API_BASE}/me/tracks?limit=50`;
+    let nextUrl: string | null = 'https://api.spotify.com/v1/me/tracks?limit=50';
 
     while (nextUrl) {
         const response = await fetch(nextUrl, {
@@ -94,9 +93,8 @@ export const getAllSavedTracks = async (token: string): Promise<any[]> => {
     return tracks;
 };
 
-// ... keep the rest of the functions from the previous answer as they are correct with the new API_BASE
 export const getTopItems = async (token: string, type: 'artists' | 'tracks', time_range: 'short_term' | 'medium_term' | 'long_term' = 'medium_term', limit: number = 50) => {
-    const response = await fetch(`${API_BASE}/me/top/${type}?time_range=${time_range}&limit=${limit}`, {
+    const response = await fetch(`https://api.spotify.com/v1/me/top/$${type}?time_range=${time_range}&limit=${limit}`, {
         headers: {
             Authorization: `Bearer ${token}`,
         },
@@ -108,7 +106,7 @@ export const getTopItems = async (token: string, type: 'artists' | 'tracks', tim
 };
 
 export const getTrack = async (token: string, id: string, market?: string) => {
-    const url = new URL(`${API_BASE}/tracks/${id}`);
+    const url = new URL(`https://api.spotify.com/v1/tracks/$${id}`);
     if (market) {
         url.searchParams.append('market', market);
     }
@@ -125,7 +123,7 @@ export const getTrack = async (token: string, id: string, market?: string) => {
 
 export const getUserPlaylists = async (token: string, userId: string) => {
     let playlists: any[] = [];
-    let nextUrl: string | null = `${API_BASE}/users/${userId}/playlists?limit=50`;
+    let nextUrl: string | null = `https://api.spotify.com/v1/users/$${userId}/playlists?limit=50`;
 
     while (nextUrl) {
         const response = await fetch(nextUrl, {
@@ -155,7 +153,7 @@ export const getAudioFeatures = async (token: string, trackIds: string[]): Promi
     for (let i = 0; i < trackIds.length; i += CHUNK_SIZE) {
         const chunk = trackIds.slice(i, i + CHUNK_SIZE);
         const ids = chunk.join(',');
-        const url = `${API_BASE}/audio-features?ids=${ids}`;
+        const url = `https://api.spotify.com/v1/audio-features?ids=$${ids}`;
 
         let attempt = 0;
         const maxAttempts = 5;
@@ -177,13 +175,14 @@ export const getAudioFeatures = async (token: string, trackIds: string[]): Promi
                 }
 
                 if (!response.ok) {
-                    throw new Error(`Failed to fetch audio features with status: ${response.status}`);
+                    const errorDetails = await response.text();
+                    throw new Error(`Failed to fetch audio features with status: ${response.status}. Details: ${errorDetails}`);
                 }
 
                 const data = await response.json();
                 const features = data.audio_features || [];
-                allFeatures.push(...features.filter((f: any) => f)); // Filter out nulls
-                break; // Success, exit retry loop
+                allFeatures.push(...features.filter((f: any) => f));
+                break; 
 
             } catch (error) {
                 console.error(`Attempt ${attempt + 1} failed:`, error);
@@ -191,7 +190,6 @@ export const getAudioFeatures = async (token: string, trackIds: string[]): Promi
                 if (attempt >= maxAttempts) {
                     throw new Error(`Failed to fetch audio features after ${maxAttempts} attempts.`);
                 }
-                // Exponential backoff for other errors
                 await new Promise(res => setTimeout(res, 1000 * Math.pow(2, attempt)));
             }
         }
@@ -203,7 +201,7 @@ export const getArtists = async (token: string, artistIds: string[]): Promise<an
     let artists: any[] = [];
      for (let i = 0; i < artistIds.length; i += 50) {
         const batch = artistIds.slice(i, i + 50);
-        const response = await fetch(`${API_BASE}/artists?ids=${batch.join(',')}`, {
+        const response = await fetch(`https://api.spotify.com/v1/artists?ids=$${batch.join(',')}`, {
           headers: {
               Authorization: `Bearer ${token}`,
           },
