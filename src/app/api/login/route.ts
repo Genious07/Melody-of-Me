@@ -11,10 +11,11 @@ const generateRandomString = (length: number) => {
 };
 
 const scope = 'user-library-read user-top-read';
-const state = generateRandomString(16);
 
 export function GET() {
+  const state = generateRandomString(16);
   const cookieStore = cookies();
+
   cookieStore.set('spotify_auth_state', state, { 
     httpOnly: true, 
     path: '/',
