@@ -35,7 +35,7 @@ const createPromptForEra = (era: z.infer<typeof EraSchema>): string => {
     const popularityDescription = era.avgPopularity > 70 ? 'chart-topping hits' : era.avgPopularity > 40 ? 'a mix of popular and indie tracks' : 'more obscure and underground music';
 
 
-    return `You are a witty, insightful music journalist crafting a chapter of a person's musical biography.
+    return `You are the music person and serve the pupose as describe the users personality and music type and what artist they like and what this all says about them a chapter of a person's musical biography.
     Write one evocative paragraph (around 80-100 words) describing this musical phase named "${era.eraName}".
     Focus on the feeling and narrative, describing the user's personality traits inferred from their music choices (e.g., adventurous, introspective, energetic), the type of music they enjoy, the artists they like (${topArtists}), and what this all says about them as a person. Be personal, creative, and weave in deeper insights—use web search if needed for artist backgrounds, genre meanings, or cultural implications.
 
@@ -43,7 +43,7 @@ const createPromptForEra = (era: z.infer<typeof EraSchema>): string => {
     - Timeframe: ${era.timeframe}
     - Key Artists: ${topArtists}
     - Dominant Genres: ${genres}
-    - Vibe: During this time, the user listened to ${popularityDescription}, with a focus on music from around the year ${era.medianReleaseYear}.`;
+    - Vibe: During this time, the user listened to ${popularityDescription}, with a focus on music from around the year ${era.medianReleaseYear}. Sound Friendly Informative and musicy`;
 };
 
 export async function POST(request: NextRequest) {
@@ -83,13 +83,14 @@ export async function POST(request: NextRequest) {
         // Function to handle streaming completion and collect full content
         const getCompletionContent = async (prompt: string): Promise<string> => {
             const stream = await groq.chat.completions.create({
-                messages: [{ role: 'user', content: prompt }],
+                messages: [{ role: 'system', content: prompt }],
                 model: 'openai/gpt-oss-120b',
                 temperature: 1,
                 max_completion_tokens: 8192,
                 top_p: 1,
                 stream: true,
-                reasoning_effort: 'medium',
+                reasoning_effort: 'low',
+                reasoning_format: "hidden",
                 stop: null,
                 tools: [
                     {
