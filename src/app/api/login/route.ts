@@ -15,7 +15,12 @@ const state = generateRandomString(16);
 
 export function GET() {
   const cookieStore = cookies();
-  cookieStore.set('spotify_auth_state', state, { httpOnly: true, path: '/' });
+  cookieStore.set('spotify_auth_state', state, { 
+    httpOnly: true, 
+    path: '/',
+    secure: process.env.NODE_ENV !== 'development',
+    sameSite: 'lax'
+  });
 
   const authUrl = new URL('https://accounts.spotify.com/authorize');
   authUrl.search = new URLSearchParams({
