@@ -10,14 +10,19 @@ export async function GET(request: NextRequest) {
   const cookieStore = cookies();
   const storedState = cookieStore.get('spotify_auth_state')?.value;
 
-  if (state === null || state !== storedState) {
-    return new NextResponse('State mismatch', { status: 400 });
-  }
-
+  // Immediately clear the state cookie after reading it
   cookieStore.delete('spotify_auth_state');
 
+  if (state === null || state !== storedState) {
+    const redirectUrl = new URL('/', request.url);
+    redirectUrl.searchParams.set('error', 'state_mismatch');
+    return NextResponse.redirect(redirectUrl);
+  }
+
   if (!code) {
-    return new NextResponse('Code not found', { status: 400 });
+    const redirectUrl = new URL('/', request.url);
+    redirectUrl.searchParams.set('error', 'code_not_found');
+    return NextResponse.redirect(redirectUrl);
   }
 
   try {
@@ -32,8 +37,10 @@ export async function GET(request: NextRequest) {
       name: 'spotify_access_token',
       value: access_token,
       httpOnly: true,
+      secure: process.env.NODE_ENV !== 'development',
       path: '/',
-      maxAge: expires_in, // in seconds
+      maxAge: expires_in,
+      sameSite: 'lax',
     });
 
     if (refresh_token) {
@@ -41,8 +48,10 @@ export async function GET(request: NextRequest) {
           name: 'spotify_refresh_token',
           value: refresh_token,
           httpOnly: true,
+          secure: process.env.NODE_ENV !== 'development',
           path: '/',
           maxAge: 60 * 60 * 24 * 30, // 30 days
+          sameSite: 'lax',
         });
     }
 
