@@ -112,7 +112,7 @@ export default function Dashboard() {
       // 1. Analyze music
       const analyzeRes = await fetch('/api/analyze');
       if (analyzeRes.status === 401) {
-        window.location.href = '/api/logout';
+        window.location.href = '/api/auth/logout';
         return;
       }
       if (!analyzeRes.ok) {
@@ -140,7 +140,7 @@ export default function Dashboard() {
         body: JSON.stringify({ eras }),
       });
       if (bioRes.status === 401) {
-          window.location.href = '/api/logout';
+          window.location.href = '/api/auth/logout';
           return;
       }
       if (!bioRes.ok) {
