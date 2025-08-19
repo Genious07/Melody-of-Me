@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
             const prompt = createPromptForEra(era);
             return groq.chat.completions.create({
                 messages: [{ role: 'user', content: prompt }],
-                model: 'mixtral-8x7b-32768',
+                model: 'gemma2-9b-it',
                 temperature: 0.7,
                 max_tokens: 256,
             });
