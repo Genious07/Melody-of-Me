@@ -5,8 +5,13 @@ import clientPromise from '@/lib/mongodb';
 import { v4 as uuidv4 } from 'uuid';
 import { Groq } from 'groq-sdk';
 import { z } from 'zod';
+import jwt from 'jsonwebtoken';
+import User from '@/models/user.model';
+
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
+
 
 const EraSchema = z.object({
   timeframe: z.string(),
@@ -46,10 +51,17 @@ const createPromptForEra = (era: z.infer<typeof EraSchema>): string => {
 
 export async function POST(request: NextRequest) {
     const cookieStore = cookies();
-    const accessToken = cookieStore.get('spotify_access_token')?.value;
+    const sessionToken = cookieStore.get('session_token')?.value;
 
-    if (!accessToken) {
+    if (!sessionToken) {
         return new NextResponse('User not authenticated', { status: 401 });
+    }
+
+    let decoded;
+    try {
+        decoded = jwt.verify(sessionToken, JWT_SECRET) as { spotifyId: string };
+    } catch (error) {
+        return new NextResponse('Invalid session token', { status: 401 });
     }
 
     const body = await request.json();
@@ -60,20 +72,15 @@ export async function POST(request: NextRequest) {
     }
 
     const { eras } = parseResult.data;
+    
+    await clientPromise;
+    const user = await User.findOne({ spotifyId: decoded.spotifyId });
 
-    let userId: string;
-    try {
-        const userRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/user`, {
-            headers: request.headers,
-        });
-        if (!userRes.ok) throw new Error("Could not fetch user to save biography");
-        const userData = await userRes.json();
-        userId = userData.id;
-    } catch(e) {
-        console.error(e);
-        return new NextResponse('Could not verify user to save biography', { status: 500 });
+    if (!user) {
+        return new NextResponse('User not found', { status: 404 });
     }
     
+    const userId = user._id;
 
     try {
         const narrativePromises = eras.map(era => {
@@ -94,8 +101,6 @@ export async function POST(request: NextRequest) {
         const fullBiography = narrativeParts.join('\n\n');
 
         const shareId = uuidv4();
-
-        await clientPromise;
         
         const newBio = new Biography({
             userId: userId,
