@@ -83,7 +83,7 @@ export default function Header() {
                         </DropdownMenuGroup>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
-                            <Link href="/api/logout">
+                            <Link href="/api/auth/logout">
                                 <LogOut className="mr-2 h-4 w-4" />
                                 <span>Log out</span>
                             </Link>

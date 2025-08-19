@@ -20,7 +20,7 @@ export default function LoginPage() {
             Connect your Spotify account to unlock your personal music insights.
           </p>
           <Button asChild size="lg" className="w-full max-w-xs font-bold">
-            <Link href="/api/login">
+            <Link href="/api/auth/login">
               <SpotifyIcon className="mr-2 h-5 w-5" />
               Login with Spotify
             </Link>
