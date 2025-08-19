@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const redirect_uri = `${process.env.NEXT_PUBLIC_APP_URL}`;
+    const redirect_uri = `${process.env.NEXT_PUBLIC_APP_URL}/api/auth/callback/spotify`;
     const tokenData = await getAccessToken(code, redirect_uri);
 
     const { access_token, refresh_token, expires_in } = tokenData;
