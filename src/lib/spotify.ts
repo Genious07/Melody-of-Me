@@ -8,7 +8,7 @@ interface TokenResponse {
   token_type: string;
   scope: string;
   expires_in: number;
-  refresh_token: string;
+  refresh_token?: string;
 }
 
 export const getAccessToken = async (code: string, redirect_uri: string): Promise<TokenResponse> => {
@@ -92,12 +92,63 @@ export const getAllSavedTracks = async (token: string): Promise<any[]> => {
     return tracks;
 };
 
+export const getTopItems = async (token: string, type: 'artists' | 'tracks', time_range: 'short_term' | 'medium_term' | 'long_term' = 'medium_term', limit: number = 50) => {
+    const response = await fetch(`https://api.spotify.com/v1/me/top/${type}?time_range=${time_range}&limit=${limit}`, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+    if (!response.ok) {
+        throw new Error(`Failed to fetch top ${type}`);
+    }
+    return response.json();
+};
+
+export const getTrack = async (token: string, id: string, market?: string) => {
+    const url = new URL(`https://api.spotify.com/v1/tracks/${id}`);
+    if (market) {
+        url.searchParams.append('market', market);
+    }
+    const response = await fetch(url.toString(), {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
+    if (!response.ok) {
+        throw new Error('Failed to fetch track');
+    }
+    return response.json();
+};
+
+export const getUserPlaylists = async (token: string, userId: string) => {
+    let playlists: any[] = [];
+    let nextUrl: string | null = `https://api.spotify.com/v1/users/${userId}/playlists?limit=50`;
+
+    while (nextUrl) {
+        const response = await fetch(nextUrl, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            console.error('Failed to fetch user playlists:', error);
+            throw new Error('Failed to fetch user playlists');
+        }
+        const data = await response.json();
+        playlists = playlists.concat(data.items);
+        nextUrl = data.next;
+    }
+    return playlists;
+};
+
+
 export const getAudioFeatures = async (token: string, trackIds: string[]): Promise<any[]> => {
     let features: any[] = [];
     // Batch trackIds into chunks of 100
     for (let i = 0; i < trackIds.length; i += 100) {
         const batch = trackIds.slice(i, i + 100);
-        const response = await fetch(`https://api.spotify.com/v1/audio-features?ids=$${batch.join(',')}`, {
+        const response = await fetch(`https://api.spotify.com/v1/audio-features?ids=${batch.join(',')}`, {
           headers: {
               Authorization: `Bearer ${token}`,
           },
@@ -117,7 +168,7 @@ export const getArtists = async (token: string, artistIds: string[]): Promise<an
     let artists: any[] = [];
      for (let i = 0; i < artistIds.length; i += 50) {
         const batch = artistIds.slice(i, i + 50);
-        const response = await fetch(`https://api.spotify.com/v1/artists?ids=$${batch.join(',')}`, {
+        const response = await fetch(`https://api.spotify.com/v1/artists?ids=${batch.join(',')}`, {
           headers: {
               Authorization: `Bearer ${token}`,
           },

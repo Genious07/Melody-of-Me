@@ -32,7 +32,7 @@ export async function GET(
   // === LOGIN ACTION ===
   if (action === 'login') {
     const state = generateRandomString(16);
-    const scope = 'user-library-read user-top-read';
+    const scope = 'user-library-read user-top-read user-read-private user-read-email playlist-read-private playlist-read-collaborative';
 
     // Set the state in a secure, httpOnly cookie
     cookies().set('spotify_auth_state', state, {
@@ -87,7 +87,7 @@ export async function GET(
       
       // 2. Exchange Authorization Code for Access Token
       const tokenData = await getAccessToken(code, redirectUri);
-      const { access_token, refresh_token, expires_in } = tokenData;
+      const { access_token, refresh_token } = tokenData;
 
       // 3. Fetch user profile from Spotify
       const userProfile = await getUserProfile(access_token);
