@@ -13,9 +13,6 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import { Bar, XAxis, YAxis } from "recharts"
-import gsap from 'gsap';
-import anime from 'animejs';
-import ScrollReveal from 'scrollreveal';
 import { useToast } from '@/hooks/use-toast';
 
 interface Era {
@@ -61,11 +58,16 @@ export default function Dashboard() {
   const bioRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    if (analysisData && eraCardsRef.current.length) {
-        // Ensure ScrollReveal is only initialized once
-        if (typeof window !== 'undefined') {
-            const sr = ScrollReveal();
-            sr.reveal('.scroll-reveal', {
+    // This effect runs only on the client, after the component has mounted.
+    // It's safe to use window and browser-specific libraries here.
+    const initAnimations = async () => {
+        // Dynamically import libraries to ensure they only run on the client
+        const ScrollReveal = (await import('scrollreveal')).default;
+        const gsap = (await import('gsap')).default;
+        const anime = (await import('animejs')).default;
+
+        if (analysisData && eraCardsRef.current.length > 0) {
+            ScrollReveal().reveal('.scroll-reveal', {
                 delay: 200,
                 distance: '50px',
                 origin: 'bottom',
@@ -78,20 +80,24 @@ export default function Dashboard() {
                 { y: 0, opacity: 1, duration: 0.5, stagger: 0.1, ease: 'power3.out' }
             );
         }
-    }
-  }, [analysisData]);
 
-  useEffect(() => {
-    if (biography && bioRef.current) {
-      anime({
-        targets: bioRef.current.querySelectorAll('p'),
-        translateY: [20, 0],
-        opacity: [0, 1],
-        delay: anime.stagger(100, { start: 200 }),
-        easing: 'easeOutExpo',
-      });
+        if (biography && bioRef.current) {
+          anime({
+            targets: bioRef.current.querySelectorAll('p'),
+            translateY: [20, 0],
+            opacity: [0, 1],
+            delay: anime.stagger(100, { start: 200 }),
+            easing: 'easeOutExpo',
+          });
+        }
+    };
+    
+    // We only want to run animations if there's something to animate.
+    if (analysisData || biography) {
+        initAnimations();
     }
-  }, [biography]);
+  }, [analysisData, biography]);
+
 
   const handleGenerateClick = async () => {
     setIsLoading(true);
