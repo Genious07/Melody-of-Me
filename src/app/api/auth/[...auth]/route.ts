@@ -32,7 +32,7 @@ export async function GET(
   // === LOGIN ACTION ===
   if (action === 'login') {
     const state = generateRandomString(16);
-    const scope = 'user-library-read user-top-read user-read-private user-read-email playlist-read-private playlist-read-collaborative';
+    const scope = 'user-library-read user-top-read user-read-private user-read-email playlist-read-private playlist-read-collaborative user-read-recently-played'; // Added user-read-recently-played
 
     // Set the state in a secure, httpOnly cookie
     cookies().set('spotify_auth_state', state, {
