@@ -33,28 +33,38 @@ export async function GET(request: NextRequest) {
     return new NextResponse('User not found in database', { status: 404 });
   }
 
-  let { accessToken, refreshToken } = user;
+  // Use a mutable object to hold the tokens
+  const tokenHolder = {
+    accessToken: user.accessToken,
+    refreshToken: user.refreshToken,
+  };
 
   const fetchWithRefresh = async <T>(fetcher: (token: string) => Promise<T>): Promise<T> => {
     try {
-      return await fetcher(accessToken);
+      // Always use the accessToken from our mutable holder
+      return await fetcher(tokenHolder.accessToken);
     } catch (error) {
       console.log("Access token likely expired, attempting refresh.");
-      if (!refreshToken) {
+      if (!tokenHolder.refreshToken) {
         throw new Error("Authentication expired. No refresh token available.");
       }
-      const newTokens = await refreshAccessToken(refreshToken);
-      accessToken = newTokens.access_token;
-      
-      // Also update refresh token if a new one is provided by Spotify
-      const updatedTokenData: { accessToken: string, refreshToken?: string } = { accessToken };
+      const newTokens = await refreshAccessToken(tokenHolder.refreshToken);
+
+      // Update the token in our holder
+      tokenHolder.accessToken = newTokens.access_token;
+
+      // Also update the refresh token if a new one is provided by Spotify
+      const updatedTokenData: { accessToken: string, refreshToken?: string } = { accessToken: newTokens.access_token };
       if (newTokens.refresh_token) {
-          refreshToken = newTokens.refresh_token;
-          updatedTokenData.refreshToken = refreshToken;
+          tokenHolder.refreshToken = newTokens.refresh_token;
+          updatedTokenData.refreshToken = newTokens.refresh_token;
       }
 
+      // Persist the new token(s) to the database
       await User.updateOne({ spotifyId: user.spotifyId }, { $set: updatedTokenData });
-      return await fetcher(accessToken);
+
+      // Retry the original request with the new token
+      return await fetcher(tokenHolder.accessToken);
     }
   };
 

@@ -176,7 +176,9 @@ export const getAudioFeatures = async (token: string, trackIds: string[]): Promi
 
                 if (!response.ok) {
                     const errorDetails = await response.text();
-                    throw new Error(`Failed to fetch audio features with status: ${response.status}. Details: ${errorDetails}`);
+                    // Log the detailed error from Spotify
+                    console.error(`Spotify API Error for audio features: ${errorDetails}`);
+                    throw new Error(`Failed to fetch audio features with status: ${response.status}.`);
                 }
 
                 const data = await response.json();
