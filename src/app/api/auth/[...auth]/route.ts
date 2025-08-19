@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import crypto from 'crypto';
-import { getAccessToken, getUserProfile } from '@/lib/spotify'; 
+import { getAccessToken, getUserProfile, refreshAccessToken } from '@/lib/spotify';
 import User from '@/models/user.model';
 import dbConnect from '@/lib/dbConnect';
 import jwt from 'jsonwebtoken';
@@ -22,7 +22,7 @@ export async function GET(
   { params }: { params: { auth: string[] } }
 ) {
   const action = params.auth[0];
-  
+
   // Dynamically construct the redirect URI from the request
   const host = request.headers.get('host');
   const proto = request.headers.get('x-forwarded-proto') || 'http';
@@ -61,7 +61,7 @@ export async function GET(
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get('code');
     const state = searchParams.get('state');
-    
+
     const cookieStore = cookies();
     const storedState = cookieStore.get('spotify_auth_state')?.value;
 
@@ -84,7 +84,7 @@ export async function GET(
     try {
       // Ensure DB connection
       await dbConnect();
-      
+
       // 2. Exchange Authorization Code for Access Token
       const tokenData = await getAccessToken(code, redirectUri);
       const { access_token, refresh_token } = tokenData;
@@ -106,14 +106,14 @@ export async function GET(
         },
         { upsert: true }
       );
-      
+
       // 5. Create a session JWT and set it as a cookie
       const token = jwt.sign({ spotifyId: userProfile.id }, JWT_SECRET, {
         expiresIn: '30d',
       });
-      
-      const response = NextResponse.redirect(new URL('/', request.url));
-      
+
+      const response = NextResponse.redirect(new URL('/dashboard', request.url));
+
       response.cookies.set({
         name: 'session_token',
         value: token,
