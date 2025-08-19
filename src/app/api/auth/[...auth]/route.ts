@@ -82,6 +82,9 @@ export async function GET(
     }
 
     try {
+      // Ensure DB connection
+      await clientPromise;
+      
       // 2. Exchange Authorization Code for Access Token
       const tokenData = await getAccessToken(code, redirectUri);
       const { access_token, refresh_token, expires_in } = tokenData;
@@ -90,7 +93,6 @@ export async function GET(
       const userProfile = await getUserProfile(access_token);
 
       // 4. Upsert user data into MongoDB
-      await clientPromise;
       await User.updateOne(
         { spotifyId: userProfile.id },
         {

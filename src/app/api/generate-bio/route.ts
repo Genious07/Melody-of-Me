@@ -73,16 +73,16 @@ export async function POST(request: NextRequest) {
 
     const { eras } = parseResult.data;
     
-    await clientPromise;
-    const user = await User.findOne({ spotifyId: decoded.spotifyId });
-
-    if (!user) {
-        return new NextResponse('User not found', { status: 404 });
-    }
-    
-    const userId = user._id;
-
     try {
+        await clientPromise;
+        const user = await User.findOne({ spotifyId: decoded.spotifyId });
+
+        if (!user) {
+            return new NextResponse('User not found', { status: 404 });
+        }
+        
+        const userId = user._id;
+
         const narrativePromises = eras.map(era => {
             const prompt = createPromptForEra(era);
             return groq.chat.completions.create({
