@@ -9,10 +9,16 @@ import dbConnect from '@/lib/dbConnect';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key';
 
 // Helper function to handle token refresh
-async function fetchWithRefresh(userId: string, currentAccessToken: string, currentRefreshToken: string, fetcher: (token: string) => Promise<any>) {
+async function fetchWithRefresh(
+  userId: string, 
+  currentAccessToken: string, 
+  currentRefreshToken: string, 
+  fetcher: (token: string) => Promise<any>
+): Promise<{ data: any; newAccessToken: string }> {
     try {
         // First, try with the current access token
-        return await fetcher(currentAccessToken);
+        const data = await fetcher(currentAccessToken);
+        return { data, newAccessToken: currentAccessToken };
     } catch (e) {
         console.log("Access token likely expired, attempting refresh.");
         
@@ -27,12 +33,17 @@ async function fetchWithRefresh(userId: string, currentAccessToken: string, curr
         });
         
         // Retry the original fetcher function with the new token
-        return await fetcher(newTokens.access_token);
+        const data = await fetcher(newTokens.access_token);
+        return { data, newAccessToken: newTokens.access_token };
     }
 }
 
-async function analyzeUserMusic(userId: string, accessToken: string, refreshToken: string) {
-    const savedTracks = await fetchWithRefresh(userId, accessToken, refreshToken, (token) => getAllSavedTracks(token));
+async function analyzeUserMusic(userId: string, initialAccessToken: string, refreshToken: string) {
+    let currentAccessToken = initialAccessToken;
+
+    const savedTracksResult = await fetchWithRefresh(userId, currentAccessToken, refreshToken, (token) => getAllSavedTracks(token));
+    const savedTracks = savedTracksResult.data;
+    currentAccessToken = savedTracksResult.newAccessToken;
 
     if (!savedTracks || savedTracks.length === 0) {
         return [];
@@ -59,7 +70,9 @@ async function analyzeUserMusic(userId: string, accessToken: string, refreshToke
 
         const trackIds = tracksInWindow.map(t => t.id).filter(id => id);
         
-        const audioFeatures = await fetchWithRefresh(userId, accessToken, refreshToken, (token) => getAudioFeatures(token, trackIds));
+        const audioFeaturesResult = await fetchWithRefresh(userId, currentAccessToken, refreshToken, (token) => getAudioFeatures(token, trackIds));
+        const audioFeatures = audioFeaturesResult.data;
+        currentAccessToken = audioFeaturesResult.newAccessToken;
         
         const featuresMap = audioFeatures.reduce((acc: any, f: any) => {
             if (f) acc[f.id] = f;
@@ -92,7 +105,10 @@ async function analyzeUserMusic(userId: string, accessToken: string, refreshToke
             const clusterTrackIds = validClusterTracks.map(t => t.id);
             const clusterArtistIds = [...new Set(validClusterTracks.flatMap(t => t.artists.map((a: any) => a.id)))];
             
-            const artistsData = await fetchWithRefresh(userId, accessToken, refreshToken, (token) => getArtists(token, clusterArtistIds));
+            const artistsResult = await fetchWithRefresh(userId, currentAccessToken, refreshToken, (token) => getArtists(token, clusterArtistIds));
+            const artistsData = artistsResult.data;
+            currentAccessToken = artistsResult.newAccessToken;
+
 
             const topArtists = artistsData.slice(0, 3).map(a => a.name);
             const topGenres = [...new Set(artistsData.flatMap(a => a.genres))].slice(0, 3);
@@ -144,7 +160,7 @@ export async function GET(request: NextRequest) {
             return new NextResponse('User not found', { status: 404 });
         }
 
-        const analysisResult = await analyzeUserMusic(user._id, user.accessToken, user.refreshToken);
+        const analysisResult = await analyzeUserMusic(user._id.toString(), user.accessToken, user.refreshToken);
         return NextResponse.json(analysisResult);
 
     } catch (error: any) {
