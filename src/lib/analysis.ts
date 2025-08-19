@@ -1,4 +1,3 @@
-
 import { getAudioFeatures, getArtists, refreshAccessToken } from './spotify';
 import User from '@/models/user.model';
 
