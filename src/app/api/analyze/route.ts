@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getAllSavedTracks, getAudioFeatures, getArtists, refreshAccessToken } from '@/lib/spotify';
 import { kmeans } from 'ml-kmeans';
-import { generateEraName } from '@/ai/flows/generate-era-name-flow';
 
 // Helper function to handle token refresh
 async function fetchWithRefresh(refreshToken: string, fetcher: (token: string) => Promise<any>) {
@@ -119,11 +118,7 @@ async function analyzeUserMusic(accessToken: string, refreshToken: string) {
                 danceability: result.centroids[i][2],
             };
             
-            const eraName = await generateEraName({
-                topArtists,
-                topGenres,
-                avgFeatures
-            });
+            const eraName = "Generated Era Name";
 
             const timeframe = key.replace('-Q1', ' (Jan-Mar)').replace('-Q2', ' (Apr-Jun)').replace('-Q3', ' (Jul-Sep)').replace('-Q4', ' (Oct-Dec)');
 
