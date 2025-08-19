@@ -1,4 +1,4 @@
-import { Schema, model, Document, Model } from 'mongoose';
+import mongoose, { Schema, model, Document, Model, models } from 'mongoose';
 
 export interface IBiography extends Document {
     userId: string; 
@@ -16,7 +16,6 @@ const biographySchema = new Schema<IBiography>({
     createdAt: { type: Date, default: Date.now, expires: '30d' }, 
 });
 
-// To prevent model recompilation on hot reloads
-const Biography: Model<IBiography> = model<IBiography>('Biography', biographySchema);
+const Biography: Model<IBiography> = models.Biography || model<IBiography>('Biography', biographySchema);
 
 export default Biography;

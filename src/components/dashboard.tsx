@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import Header from "./header";
 import UserProfile from "./user-profile";
 import { Button } from './ui/button';
-import { Loader2, Zap } from 'lucide-react';
+import { Loader2, Zap, Share2 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
 import { BarChart } from 'recharts';
@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/chart"
 import { Bar, XAxis, YAxis } from "recharts"
 import { useToast } from '@/hooks/use-toast';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
 
 interface Era {
   timeframe: string;
@@ -60,41 +62,43 @@ export default function Dashboard() {
   useEffect(() => {
     // This effect runs only on the client, after the component has mounted.
     // It's safe to use window and browser-specific libraries here.
-    const initAnimations = async () => {
-        // Dynamically import libraries to ensure they only run on the client
-        const ScrollReveal = (await import('scrollreveal')).default;
-        const gsap = (await import('gsap')).default;
-        const anime = (await import('animejs')).default;
+    if (typeof window !== 'undefined') {
+        const initAnimations = async () => {
+            // Dynamically import libraries to ensure they only run on the client
+            const ScrollReveal = (await import('scrollreveal')).default;
+            const { gsap } = await import('gsap');
+            const anime = (await import('animejs')).default;
 
-        if (analysisData && eraCardsRef.current.length > 0) {
-            ScrollReveal().reveal('.scroll-reveal', {
-                delay: 200,
-                distance: '50px',
-                origin: 'bottom',
-                easing: 'ease-in-out',
-                reset: false,
-                viewFactor: 0.2,
+            if (analysisData && eraCardsRef.current.length > 0) {
+                const sr = ScrollReveal();
+                sr.reveal('.scroll-reveal', {
+                    delay: 200,
+                    distance: '50px',
+                    origin: 'bottom',
+                    easing: 'ease-in-out',
+                    reset: false,
+                    viewFactor: 0.2,
+                });
+                gsap.fromTo(eraCardsRef.current.filter(el => el),
+                    { y: 50, opacity: 0 },
+                    { y: 0, opacity: 1, duration: 0.5, stagger: 0.1, ease: 'power3.out' }
+                );
+            }
+
+            if (biography && bioRef.current) {
+            anime({
+                targets: bioRef.current.querySelectorAll('p'),
+                translateY: [20, 0],
+                opacity: [0, 1],
+                delay: anime.stagger(100, { start: 200 }),
+                easing: 'easeOutExpo',
             });
-            gsap.fromTo(eraCardsRef.current,
-                { y: 50, opacity: 0 },
-                { y: 0, opacity: 1, duration: 0.5, stagger: 0.1, ease: 'power3.out' }
-            );
+            }
+        };
+        
+        if (analysisData || biography) {
+            initAnimations();
         }
-
-        if (biography && bioRef.current) {
-          anime({
-            targets: bioRef.current.querySelectorAll('p'),
-            translateY: [20, 0],
-            opacity: [0, 1],
-            delay: anime.stagger(100, { start: 200 }),
-            easing: 'easeOutExpo',
-          });
-        }
-    };
-    
-    // We only want to run animations if there's something to animate.
-    if (analysisData || biography) {
-        initAnimations();
     }
   }, [analysisData, biography]);
 
@@ -158,6 +162,14 @@ export default function Dashboard() {
     }
   };
 
+  const handleCopyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+        title: "Copied to clipboard!",
+        description: "Your shareable link is ready to be pasted.",
+    })
+  }
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-background">
       <Header />
@@ -167,16 +179,29 @@ export default function Dashboard() {
 
             <div className="space-y-8">
                 {analysisData && biography && (
-                    <Card className="scroll-reveal">
+                     <Card className="scroll-reveal">
                         <CardHeader>
-                            <CardTitle className="text-2xl">Your Sonic Biography</CardTitle>
-                            <CardDescription>A story written from your music taste.</CardDescription>
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <CardTitle className="text-2xl">Your Sonic Biography</CardTitle>
+                                    <CardDescription>A story written from your music taste.</CardDescription>
+                                </div>
+                            </div>
                         </CardHeader>
                         <CardContent>
-                            <div ref={bioRef} className="prose prose-invert max-w-none text-foreground/90 space-y-4">
-                            {biography.biography.split('\n\n').map((paragraph, i) => (
-                                <p key={i} className="opacity-0">{paragraph}</p>
-                            ))}
+                             <div ref={bioRef} className="prose prose-invert max-w-none text-foreground/90 space-y-4 mb-8">
+                                {biography.biography.split('\n\n').map((paragraph, i) => (
+                                    <p key={i} className="opacity-0">{paragraph}</p>
+                                ))}
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="share-link">Share Your Story</Label>
+                                <div className="flex space-x-2">
+                                    <Input id="share-link" type="text" readOnly value={`${window.location.origin}/share/${biography.shareId}`} />
+                                    <Button variant="outline" size="icon" onClick={() => handleCopyToClipboard(`${window.location.origin}/share/${biography.shareId}`)}>
+                                        <Share2 className="h-4 w-4" />
+                                    </Button>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
