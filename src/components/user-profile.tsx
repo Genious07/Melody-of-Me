@@ -41,21 +41,22 @@ export default function UserProfile() {
       try {
         const res = await fetch('/api/user');
         if (!res.ok) {
-          throw new Error('Failed to fetch user data');
+           const errorData = await res.json().catch(() => ({ message: 'Failed to fetch user data' }));
+           throw new Error(errorData.message || 'Failed to fetch user data');
         }
         const data = await res.json();
         setUser(data);
-      } catch (error) {
+      } catch (error: any) {
         console.error(error);
         toast({
           variant: "destructive",
-          title: "Error",
-          description: "Could not load your profile. Please try logging out and back in.",
+          title: "Session Error",
+          description: "Could not load your profile. Logging you out.",
         });
         // Redirect to logout to clear corrupted session
         setTimeout(() => {
           window.location.href = '/api/logout';
-        }, 3000);
+        }, 2000);
       } finally {
         setLoading(false);
       }
@@ -105,12 +106,12 @@ export default function UserProfile() {
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
-            <CardTitle className="text-2xl">Your Profile</CardTitle>
+            <CardTitle className="text-2xl">Welcome, {user.display_name}</CardTitle>
             {user.product && <Badge variant="secondary" className="capitalize">{user.product}</Badge>}
         </div>
         <CardDescription>This is your information according to Spotify.</CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-6 md:grid-cols-2">
+      <CardContent className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <ProfileItem icon={<Mail size={20}/>} label="Email" value={user.email} />
         <ProfileItem icon={<Globe size={20}/>} label="Country" value={user.country} />
         <ProfileItem icon={<Users size={20}/>} label="Followers" value={user.followers?.total} />
