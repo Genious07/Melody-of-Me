@@ -3,30 +3,22 @@ import { useState, useEffect, useRef } from 'react';
 import Header from "./header";
 import UserProfile from "./user-profile";
 import { Button } from './ui/button';
-import { Loader2, Zap, Share2 } from 'lucide-react';
+import { Loader2, Zap, Share2, Music } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { BarChart } from 'recharts';
-import {
-  ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
-} from "@/components/ui/chart"
-import { Bar, XAxis, YAxis } from "recharts"
 import { useToast } from '@/hooks/use-toast';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
+import { Progress } from './ui/progress';
+
 
 interface Era {
   timeframe: string;
   eraName: string;
   topArtists: string[];
   topGenres: string[];
-  avgFeatures: {
-    energy: number;
-    valence: number;
-    danceability: number;
-  };
+  avgPopularity: number;
+  medianReleaseYear: number;
   trackIds: string[];
 }
 
@@ -35,20 +27,6 @@ interface Biography {
     shareId: string;
 }
 
-const chartConfig = {
-  energy: {
-    label: "Energy",
-    color: "hsl(var(--chart-1))",
-  },
-  valence: {
-    label: "Valence",
-    color: "hsl(var(--chart-2))",
-  },
-  danceability: {
-    label: "Danceability",
-    color: "hsl(var(--chart-3))",
-  },
-} satisfies Record<string, any>
 
 export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(false);
@@ -231,20 +209,15 @@ export default function Dashboard() {
                                     </div>
                                 </div>
                                 <div className="mt-auto pt-4">
-                                    <h4 className="font-semibold mb-2 text-sm">Vibe</h4>
-                                    <ChartContainer config={chartConfig} className="h-40 w-full">
-                                        <BarChart accessibilityLayer data={[era.avgFeatures]} layout="vertical" margin={{ left: 10, right: 10 }}>
-                                            <YAxis dataKey="name" type="category" hide />
-                                            <XAxis type="number" domain={[0, 1]} hide />
-                                            <ChartTooltip
-                                                cursor={false}
-                                                content={<ChartTooltipContent hideLabel />}
-                                            />
-                                            <Bar dataKey="energy" name="Energy" fill="var(--color-energy)" radius={5} barSize={15} />
-                                            <Bar dataKey="valence" name="Valence" fill="var(--color-valence)" radius={5} barSize={15} />
-                                            <Bar dataKey="danceability" name="Danceability" fill="var(--color-danceability)" radius={5} barSize={15} />
-                                        </BarChart>
-                                    </ChartContainer>
+                                     <h4 className="font-semibold mb-2 text-sm">Vibe</h4>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center text-xs text-muted-foreground">
+                                            <span>Obscure</span>
+                                            <span>Mainstream</span>
+                                        </div>
+                                        <Progress value={era.avgPopularity} aria-label={`${era.avgPopularity}% Popularity`} />
+                                        <p className="text-sm text-center">Median Release Year: <span className="font-bold">{era.medianReleaseYear}</span></p>
+                                    </div>
                                 </div>
                             </CardContent>
                             </Card>

@@ -18,11 +18,8 @@ const EraSchema = z.object({
   eraName: z.string(),
   topArtists: z.array(z.string()),
   topGenres: z.array(z.string()),
-  avgFeatures: z.object({
-    energy: z.number(),
-    valence: z.number(),
-    danceability: z.number(),
-  }),
+  avgPopularity: z.number(),
+  medianReleaseYear: z.number(),
   trackIds: z.array(z.string()),
 });
 
@@ -35,8 +32,8 @@ const BioInputSchema = z.object({
 const createPromptForEra = (era: z.infer<typeof EraSchema>): string => {
     const topArtists = era.topArtists.slice(0, 3).join(', ');
     const genres = era.topGenres.slice(0, 3).join(', ');
-    const energy = Math.round(era.avgFeatures.energy * 100);
-    const valence = Math.round(era.avgFeatures.valence * 100);
+    const popularityDescription = era.avgPopularity > 70 ? 'chart-topping hits' : era.avgPopularity > 40 ? 'a mix of popular and indie tracks' : 'more obscure and underground music';
+
 
     return `You are a witty, insightful music journalist crafting a chapter of a person's musical biography.
     Write one evocative paragraph (around 80-100 words) describing this musical phase named "${era.eraName}".
@@ -46,7 +43,7 @@ const createPromptForEra = (era: z.infer<typeof EraSchema>): string => {
     - Timeframe: ${era.timeframe}
     - Key Artists: ${topArtists}
     - Dominant Genres: ${genres}
-    - Vibe: Energy level at ${energy}% and Happiness/Positivity at ${valence}%.`;
+    - Vibe: During this time, the user listened to ${popularityDescription}, with a focus on music from around the year ${era.medianReleaseYear}.`;
 };
 
 export async function POST(request: NextRequest) {

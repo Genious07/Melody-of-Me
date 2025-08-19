@@ -1,5 +1,4 @@
-import { getAudioFeatures, getArtists } from './spotify';
-import User from '@/models/user.model';
+import { getTracksDetails, getArtists } from './spotify';
 
 interface Track {
   added_at: string;
@@ -14,11 +13,8 @@ export interface Era {
   eraName: string;
   topArtists: string[];
   topGenres: string[];
-  avgFeatures: {
-    energy: number;
-    valence: number;
-    danceability: number;
-  };
+  avgPopularity: number;
+  medianReleaseYear: number;
   trackIds: string[];
 }
 
@@ -40,10 +36,10 @@ export async function analyzeMusicalEras(
   const erasData: Era[] = [];
   const tracksPerEra = Math.max(20, Math.ceil(sortedTracks.length / 5)); // Create up to 5 eras
 
-  // Pre-fetch all audio features at once for efficiency
+  // Pre-fetch all track details at once for efficiency
   const allTrackIds = sortedTracks.map(item => item.track.id);
-  const audioFeaturesList = await fetcher(token => getAudioFeatures(token, allTrackIds));
-  const audioFeaturesMap = new Map(audioFeaturesList.filter(f => f).map(f => [f.id, f]));
+  const trackDetailsList = await fetcher(token => getTracksDetails(token, allTrackIds));
+  const trackDetailsMap = new Map(trackDetailsList.filter(t => t).map(t => [t.id, t]));
 
   for (let i = 0; i < sortedTracks.length; i += tracksPerEra) {
     const eraTracks = sortedTracks.slice(i, i + tracksPerEra);
@@ -83,16 +79,16 @@ export async function analyzeMusicalEras(
       .slice(0, 5)
       .map(entry => entry[0]);
 
-    // 3. Feature Analysis: Average Audio Features
-    const features = trackIds.map(id => audioFeaturesMap.get(id)).filter((f): f is any => !!f);
+    // 3. New Feature Analysis: Popularity and Release Year
+    const details = trackIds.map(id => trackDetailsMap.get(id)).filter(d => d);
     
     const safeAvg = (arr: number[]) => (arr.length === 0 ? 0 : arr.reduce((acc, val) => acc + val, 0) / arr.length);
+    
+    const avgPopularity = Math.round(safeAvg(details.map(d => d.popularity)));
 
-    const avgFeatures = {
-      energy: safeAvg(features.map(f => f.energy)),
-      valence: safeAvg(features.map(f => f.valence)),
-      danceability: safeAvg(features.map(f => f.danceability)),
-    };
+    const releaseYears = details.map(d => new Date(d.album.release_date).getFullYear()).filter(year => !isNaN(year)).sort((a, b) => a - b);
+    const medianReleaseYear = releaseYears.length > 0 ? releaseYears[Math.floor(releaseYears.length / 2)] : 0;
+
 
     // 4. Structure Era Data
     const firstTrackDate = new Date(eraTracks[0].added_at);
@@ -108,7 +104,8 @@ export async function analyzeMusicalEras(
       eraName,
       topArtists: topArtistsNames,
       topGenres,
-      avgFeatures,
+      avgPopularity,
+      medianReleaseYear,
       trackIds,
     });
   }
