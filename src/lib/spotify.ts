@@ -68,3 +68,65 @@ export const getUserProfile = async (access_token: string) => {
 
     return response.json();
 }
+
+export const getAllSavedTracks = async (token: string): Promise<any[]> => {
+    let tracks: any[] = [];
+    let nextUrl: string | null = 'https://api.spotify.com/v1/me/tracks?limit=50';
+
+    while (nextUrl) {
+        const response = await fetch(nextUrl, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch saved tracks');
+        }
+
+        const data = await response.json();
+        tracks = tracks.concat(data.items);
+        nextUrl = data.next;
+    }
+
+    return tracks;
+};
+
+export const getAudioFeatures = async (token: string, trackIds: string[]): Promise<any[]> => {
+    let features: any[] = [];
+    // Batch trackIds into chunks of 100
+    for (let i = 0; i < trackIds.length; i += 100) {
+        const batch = trackIds.slice(i, i + 100);
+        const response = await fetch(`https://api.spotify.com/v1/audio-features?ids=${batch.join(',')}`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch audio features');
+        }
+
+        const data = await response.json();
+        features = features.concat(data.audio_features);
+    }
+    return features;
+};
+
+export const getArtists = async (token: string, artistIds: string[]): Promise<any[]> => {
+    let artists: any[] = [];
+     for (let i = 0; i < artistIds.length; i += 50) {
+        const batch = artistIds.slice(i, i + 50);
+        const response = await fetch(`https://api.spotify.com/v1/artists?ids=${batch.join(',')}`, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        if (!response.ok) {
+            throw new Error('Failed to fetch artists');
+        }
+         const data = await response.json();
+        artists = artists.concat(data.artists);
+    }
+    return artists;
+}
