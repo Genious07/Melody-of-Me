@@ -144,24 +144,56 @@ export const getUserPlaylists = async (token: string, userId: string) => {
 
 
 export const getAudioFeatures = async (token: string, trackIds: string[]): Promise<any[]> => {
-    let features: any[] = [];
-    // Batch trackIds into chunks of 100
-    for (let i = 0; i < trackIds.length; i += 100) {
-        const batch = trackIds.slice(i, i + 100);
-        const response = await fetch(`https://api.spotify.com/v1/audio-features?ids=${batch.join(',')}`, {
-          headers: {
-              Authorization: `Bearer ${token}`,
-          },
-      });
+    if (!Array.isArray(trackIds) || trackIds.length === 0) return [];
 
-        if (!response.ok) {
-            throw new Error('Failed to fetch audio features');
+    const CHUNK_SIZE = 100;
+    const allFeatures: any[] = [];
+
+    for (let i = 0; i < trackIds.length; i += CHUNK_SIZE) {
+        const chunk = trackIds.slice(i, i + CHUNK_SIZE);
+        const ids = chunk.join(',');
+        const url = `https://api.spotify.com/v1/audio-features?ids=${ids}`;
+
+        let attempt = 0;
+        const maxAttempts = 5;
+        while (attempt < maxAttempts) {
+            try {
+                const response = await fetch(url, {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                    },
+                });
+
+                if (response.status === 429) {
+                    const retryAfter = response.headers.get('Retry-After') || '1';
+                    const waitMs = parseInt(retryAfter, 10) * 1000;
+                    console.warn(`Rate limited. Retrying after ${waitMs}ms...`);
+                    await new Promise(res => setTimeout(res, waitMs));
+                    attempt++;
+                    continue;
+                }
+
+                if (!response.ok) {
+                    throw new Error(`Failed to fetch audio features with status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                const features = data.audio_features || [];
+                allFeatures.push(...features.filter((f: any) => f)); // Filter out nulls
+                break; // Success, exit retry loop
+
+            } catch (error) {
+                console.error(`Attempt ${attempt + 1} failed:`, error);
+                attempt++;
+                if (attempt >= maxAttempts) {
+                    throw new Error(`Failed to fetch audio features after ${maxAttempts} attempts.`);
+                }
+                // Exponential backoff for other errors
+                await new Promise(res => setTimeout(res, 1000 * Math.pow(2, attempt)));
+            }
         }
-
-        const data = await response.json();
-        features = features.concat(data.audio_features);
     }
-    return features;
+    return allFeatures;
 };
 
 export const getArtists = async (token: string, artistIds: string[]): Promise<any[]> => {

@@ -1,4 +1,3 @@
-
 // src/app/api/analyze/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -84,11 +83,22 @@ export async function GET(request: NextRequest) {
         const trackIds = eraTracks.map(item => item.track.id);
         
         // 4. Calculate average audio features for the era
-        const features = trackIds.map(id => audioFeaturesMap.get(id)).filter(f => f);
+        const features = trackIds.map(id => audioFeaturesMap.get(id)).filter((f): f is any => !!f);
+        
+        if (features.length === 0) {
+          console.warn(`No audio features found for era starting ${eraTracks[0]?.added_at}. Skipping era.`);
+          continue;
+        }
+
+        const safeAvg = (arr: number[]) => {
+            if (arr.length === 0) return 0;
+            return arr.reduce((acc, val) => acc + val, 0) / arr.length;
+        };
+
         const avgFeatures = {
-            energy: features.reduce((sum, f) => sum + f.energy, 0) / features.length || 0,
-            valence: features.reduce((sum, f) => sum + f.valence, 0) / features.length || 0,
-            danceability: features.reduce((sum, f) => sum + f.danceability, 0) / features.length || 0,
+            energy: safeAvg(features.map(f => f.energy)),
+            valence: safeAvg(features.map(f => f.valence)),
+            danceability: safeAvg(features.map(f => f.danceability)),
         };
 
         // 5. Determine top artists and genres for the era
@@ -156,6 +166,6 @@ export async function GET(request: NextRequest) {
         errResponse.cookies.delete('session_token');
         return errResponse;
     }
-    return new NextResponse(JSON.stringify({ error: errorMessage }), { status });
+    return new NextResponse(JSON.stringify({ error: errorMessage, details: error.message }), { status });
   }
 }
