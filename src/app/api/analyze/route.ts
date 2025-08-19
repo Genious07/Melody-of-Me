@@ -1,4 +1,3 @@
-
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getAllSavedTracks, refreshAccessToken } from '@/lib/spotify';
@@ -34,11 +33,9 @@ export async function GET(request: NextRequest) {
     return new NextResponse('User not found in database', { status: 404 });
   }
 
-  let { spotifyId, accessToken, refreshToken } = user;
+  let { accessToken, refreshToken } = user;
 
   try {
-    // This top-level fetchWithRefresh handles the initial data grab.
-    // The analysis service will handle its own refreshes internally.
     const fetchWithRefresh = async <T>(fetcher: (token: string) => Promise<T>): Promise<{data: T, token: string}> => {
       try {
         const data = await fetcher(accessToken);
@@ -65,7 +62,7 @@ export async function GET(request: NextRequest) {
     }
 
     // 2. Analyze the tracks to identify eras, passing the most current tokens
-    const eras = await analyzeMusicalEras(spotifyId, savedTracks, currentAccessToken, refreshToken);
+    const eras = await analyzeMusicalEras(user.spotifyId, savedTracks, currentAccessToken, refreshToken);
 
     return NextResponse.json(eras);
 
