@@ -84,4 +84,4 @@ npm install
 npm run dev
 ```
 
-Open [http://localhost:9002](https://www.google.com/search?q=http://localhost:9002) with your browser to see the result.
+Open [http://localhost:9002](https://www.google.com/search?q=http://localhost:9002) with your browser to see the result. 
